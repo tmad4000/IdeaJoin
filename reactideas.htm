@@ -1,0 +1,255 @@
+<!-- template.html -->
+<html>
+<head>
+  <title>Hello React</title>
+  <script src="http://fb.me/react-0.11.0.js"></script>
+  <script src="http://fb.me/JSXTransformer-0.11.0.js"></script>
+  <script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/showdown/0.3.1/showdown.min.js"></script>
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet/less" type="text/css" href="styles.less" />
+  <script src="lib/less-1.7.4.min.js" type="text/javascript"></script>
+
+</head>
+<body>
+  <div id="content"></div>
+  <script type="text/jsx">
+    /** @jsx React.DOM */
+      // The above declaration must remain intact at the top of the script.
+      // Your code here
+      // tutorial1.js
+
+
+      var converter = new Showdown.converter();
+
+
+      var Idea = React.createClass({
+
+        onCheck: function() {
+          //TODO
+
+          var text = this.props.children.toString()
+          
+          // TODO: send request to the server
+          
+          return false;
+        },
+        onX: function() {
+          //TODO
+          
+          var text = this.props.children.toString()
+          
+          // TODO: send request to the server
+          
+          return false;
+        },
+
+
+
+
+        render: function() {
+          var rawMarkup = this.props.children.toString();
+
+          // var rawMarkup = converter.makeHtml(this.props.children.toString());
+
+          //#todo #hack #warning dangerouslySetInnerHTML  xss possible  
+          return (
+            <div className="ideaContainer">
+              <div className="checkXContainer">
+                <a href="" onClick={this.onCheck} className="check">/</a>
+                <a href="" onClick={this.onX} className="x">x</a>
+              </div>
+
+              <div className="id">
+                <a href={"#/id/"+this.props.id}>{this.props.id}</a>
+              </div>
+              <div className="idea"><span dangerouslySetInnerHTML={{__html: rawMarkup}} /></div>
+              <h2 className="ideaAuthor">
+                {this.props.author}
+              </h2>
+
+            </div>
+            );
+        }
+      });
+
+
+      //okay so i changed the structure of the html a little here above simple stuff 
+
+      //usually you should give everything in react a wrapper div calling it [ElementName]Box
+
+      //or [ElementName]Container
+
+
+      var IdeaBox = React.createClass({
+        getDefaultProps: function() {
+          return {
+            data: []
+          }
+        },
+        getInitialState: function() {
+          return {currentIdea:null, data: this.props.data};
+        },
+        componentDidMount: function() {
+          this.loadIdeasFromServer();
+          // setInterval(this.loadIdeasFromServer, this.props.pollInterval);
+
+          var setState = this.setState;
+          var router = Router({
+            '/': setState.bind(this, {nowShowing: app.ALL_TODOS}),
+            '/active': setState.bind(this, {nowShowing: app.ACTIVE_TODOS}),
+            '/completed': setState.bind(this, {nowShowing: app.COMPLETED_TODOS})
+            // '/q/:query': setState.bind(this, {filterQ: query})
+          });
+          router.init('/');
+
+        },
+        loadIdeasFromServer: function() {
+          $.ajax({
+            url: this.props.url,
+            dataType: 'json',
+            success: function(data) {
+
+             data=$.map(data,function(o) {
+                o.text= $('<div/>').text(o.text).html(); //#todo use underscore _.escape
+                o.author= $('<div/>').text(o.author).html(); //#todo use underscore _.escape
+
+                return o
+              })
+
+             this.setProps({data: data});
+             this.setState({data: data});
+           }.bind(this),
+           error: function(xhr, status, err) {
+            console.error(this.props.url, status, err.toString());
+          }.bind(this)
+        });
+        },
+        handleIdeaSubmit: function(idea) {
+
+          var ideas = this.state.data;
+          var newIdeas = ideas.concat([idea]);
+          this.setProps({data: newIdeas});
+          this.setState({data: newIdeas});
+
+
+          $.ajax({
+            url: this.props.url,
+            dataType: 'json',
+            type: 'POST',
+            data: idea,
+            success: function(data) {
+              this.setState({data: data});
+            }.bind(this),
+            error: function(xhr, status, err) {
+              console.error(this.props.url, status, err.toString());
+            }.bind(this)
+          });
+        },
+
+        filterSearch: function(query) {
+          this.props.data.forEach(function(obj) {
+            obj.text = obj.text.replace(new RegExp('<b>', 'gi'), '');
+            obj.text = obj.text.replace(new RegExp('</b>', 'gi'), '');
+          });
+          var newData = this.props.data.filter(function(_data) {
+            return _data.text.toUpperCase().indexOf(query.toUpperCase()) !== -1;
+          });
+          newData.forEach(function(obj) {
+            if (query.length !== 0) {
+              obj.text = obj.text.replace(new RegExp(query, 'gi'), '<b>' + query + '</b>');
+            }
+          });
+          this.setState({
+            data: newData
+          });
+        },
+        render: function() {
+          return (
+            <div className="ideaBoxContainer">        
+              <h1>Ideas</h1>
+              <SearchBox filterSearch={this.filterSearch} />
+              <IdeaForm onIdeaSubmit={this.handleIdeaSubmit} />
+
+              <div className="currentIdea">Current Idea: {this.state.currentIdea};</div>
+
+              <IdeaList data={this.state.data} />
+            </div>
+            );
+        }
+      });
+
+      /*
+       * 
+       */
+       var SearchBox = React.createClass({
+        handleKeyUp: function(e) {
+          this.props.filterSearch(this.refs.search.getDOMNode().value);
+        },
+
+
+        render: function() {
+          return <input className='search' placeholder='search' type='text' ref='search' onKeyUp={this.handleKeyUp}></input>
+        }
+      });
+
+      // tutorial2.js
+      var IdeaList = React.createClass({
+        render: function() {
+          var ideaNodes = this.props.data.map(function (idea) {
+            return (
+              <Idea id={idea.id} author={idea.author}>
+                {idea.text}
+              </Idea>
+              );
+          });
+          ideaNodes=ideaNodes.reverse();
+          return (
+            <div className="ideaList">
+             {ideaNodes}
+           </div>
+           );
+        }
+      });
+
+      var IdeaForm = React.createClass({
+
+        handleSubmit: function() {
+          var author = this.refs.author.getDOMNode().value.trim();
+          var text = this.refs.text.getDOMNode().value.trim();
+          this.props.onIdeaSubmit({author: author, text: text});
+
+          if (!text || !author) {
+            return false;
+          }
+          // TODO: send request to the server
+          this.refs.author.getDOMNode().value = '';
+          this.refs.text.getDOMNode().value = '';
+          return false;
+        },
+
+
+        render: function() {
+          return (
+            <div className="ideaForm">
+              <form className="ideaForm" onSubmit={this.handleSubmit}>
+
+                <input type="text" placeholder="Add an idea!" ref="text" />
+                <input type="text" placeholder="Your name" ref="author" />
+                <input type="submit" value="Add idea" />
+              </form>
+            </div>
+            );
+        }
+      });
+
+      React.renderComponent(
+        <IdeaBox url="ideas.json" pollInterval={2000} />,
+        document.getElementById('content')
+        );
+
+//Look into 
+</script>
+
+</body>
+</html>
